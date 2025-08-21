@@ -1,124 +1,308 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interactive Cinematic Intro</title>
-    <style>
-      body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: black; }
-      #root { width: 100%; height: 100%; }
-      canvas { outline: none; }
-      @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    
-    <!-- React + ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- Three.js + React Three Fiber + Drei -->
-    <script src="https://unpkg.com/three@0.156.1/build/three.min.js"></script>
-    <script src="https://unpkg.com/@react-three/fiber/dist/react-three-fiber.umd.js"></script>
-    <script src="https://unpkg.com/@react-three/drei/dist/drei.umd.js"></script>
-    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Legal Video Helper — YouTube Embed, Bookmarks & Direct-File Downloader</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--panel:#121826;--panel-2:#0f1420;--text:#e6eef8;--muted:#94a3b8;--accent:#7c5cff;--accent-2:#22d3ee;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;
+      --radius:14px;--radius-sm:10px;--shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 600px at 10% -10%,rgba(124,92,255,.15),transparent),
+                      radial-gradient(800px 500px at 90% 0%,rgba(34,211,238,.12),transparent),
+                      var(--bg);color:var(--text);font:500 16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Arial}
+    a{color:var(--accent-2);text-decoration:none}
+    .wrap{max-width:1100px;margin-inline:auto;padding:28px}
+    .title{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+    .logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#5eead4);filter:saturate(110%);box-shadow:var(--shadow)}
+    h1{margin:0;font-size:clamp(22px,2.6vw,34px)}
+    p.muted{color:var(--muted);margin:6px 0 0}
 
-    <script type="text/babel">
-      const { Canvas, useFrame, useThree } = ReactThreeFiber;
-      const { Html, Sparkles, useGLTF } = drei;
-      const { useRef, useState, useEffect } = React;
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+    @media (max-width:960px){.grid{grid-template-columns:1fr}}
 
-      function Crosshair({ visible }) {
-        const [pos, setPos] = useState({ x: -1000, y: -1000 });
-        useEffect(() => {
-          function onMove(e) { setPos({ x: e.clientX, y: e.clientY }); }
-          window.addEventListener("mousemove", onMove);
-          return () => window.removeEventListener("mousemove", onMove);
-        }, []);
-        return (
-          <div style={{ position: "fixed", left: pos.x-8, top: pos.y-8, opacity: visible ? 1 : 0, zIndex: 40 }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" stroke="white">
-              <circle cx="8" cy="8" r="1" />
-              <line x1="8" y1="0" x2="8" y2="3" />
-              <line x1="8" y1="13" x2="8" y2="16" />
-              <line x1="0" y1="8" x2="3" y2="8" />
-              <line x1="13" y1="8" x2="16" y2="8" />
-            </svg>
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),transparent),var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .card h2{margin:0;font-size:18px}
+    .card .hd{padding:16px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)}
+    .card .bd{padding:18px}
+
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    input[type="text"], input[type="url"], input[type="search"], input[type="file"]::file-selector-button{
+      background:var(--panel-2);border:1px solid rgba(255,255,255,.08);color:var(--text);padding:12px 14px;border-radius:var(--radius-sm);outline:none;min-width:200px
+    }
+    input[type="text"], input[type="url"], input[type="search"]{width:100%}
+    button{appearance:none;border:none;padding:11px 14px;border-radius:var(--radius-sm);background:var(--accent);color:white;font-weight:700;cursor:pointer;transition:.2s transform ease,.2s opacity ease}
+    button:hover{transform:translateY(-1px)}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.12)}
+    .btn-ok{background:var(--ok)}
+    .btn-warn{background:var(--warn);color:#111}
+    .btn-err{background:var(--err)}
+    .pill{display:inline-flex;gap:8px;align-items:center;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.35);padding:6px 10px;border-radius:20px;color:#c7baff}
+    .help{font-size:13px;color:var(--muted)}
+
+    .yt-embed{aspect-ratio:16/9;width:100%;border:0;border-radius:12px;background:#000}
+
+    .list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .item{background:var(--panel-2);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:12px}
+    .item .row{justify-content:space-between}
+    .small{font-size:13px;color:var(--muted)}
+
+    .notice{padding:14px;border-radius:12px;background:rgba(245,158,11,.08);border:1px dashed rgba(245,158,11,.45);color:#ffe2a7}
+    .ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.4);color:#b5f3c8}
+    .err{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.4);color:#ffc7c7}
+    code{background:rgba(255,255,255,.06);padding:.1em .35em;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div class="logo"></div>
+      <div>
+        <h1>Legal Video Helper</h1>
+        <p class="muted">Play YouTube videos via the official embed, save your favorite links locally, and download only from <b>direct file URLs you own or have rights to</b>. No YouTube downloading.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- LEFT COLUMN: YouTube Player & Bookmarks -->
+      <section class="card">
+        <div class="hd">
+          <h2>YouTube Player (Embed — no download)</h2>
+          <span class="pill">Safe & TOS-friendly</span>
+        </div>
+        <div class="bd">
+          <div class="row" style="margin-bottom:10px">
+            <input id="ytUrl" type="url" placeholder="Paste a YouTube URL, e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ" />
+            <button id="loadBtn">Load</button>
+            <button id="saveBtn" class="btn-ghost" title="Save to bookmarks">☆ Save</button>
           </div>
-        );
+          <iframe id="ytPlayer" class="yt-embed" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          <p class="help" style="margin:10px 0 0">Tip: Works with full links or <code>youtu.be/ID</code>. We extract the video ID and use the official embed.
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd">
+          <h2>Bookmarks (local-only)</h2>
+          <button id="clearAll" class="btn-warn" title="Clear all saved links">Clear all</button>
+        </div>
+        <div class="bd">
+          <div id="bookmarks" class="list" aria-live="polite"></div>
+          <p class="help" style="margin-top:10px">Your bookmarks are stored in your browser <code>localStorage</code> and never leave your device.</p>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Direct-file downloader -->
+      <section class="card" style="grid-column:1/-1">
+        <div class="hd">
+          <h2>Direct-File Video Downloader</h2>
+          <span class="pill">For MP4/WebM URLs you own</span>
+        </div>
+        <div class="bd">
+          <div class="notice" style="margin-bottom:12px">
+            <b>Important:</b> This does <i>not</i> download from YouTube or other sites that prohibit downloads. Use it only for direct file links (e.g. <code>https://example.com/video.mp4</code>) that you are authorized to download.
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <input id="fileUrl" type="url" placeholder="Direct MP4/WebM URL (not YouTube)"/>
+            <input id="fileName" type="text" placeholder="Save as (optional, e.g. my-video.mp4)" style="max-width:260px"/>
+            <button id="dlBtn" class="btn-ok">Download</button>
+          </div>
+          <p class="help">Why some links won’t work: servers may block cross-origin downloads, require auth, or stream via HLS/DASH instead of a single file. That’s normal and expected.</p>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1">
+        <div class="hd">
+          <h2>Upload & Save Your Own Video</h2>
+          <span class="pill">Local — stays on your device</span>
+        </div>
+        <div class="bd">
+          <div class="row" style="margin-bottom:10px">
+            <input id="uploader" type="file" accept="video/*"/>
+            <button id="saveLocal" class="btn-ghost">Create local preview</button>
+          </div>
+          <video id="localVideo" controls style="width:100%;max-height:60vh;border-radius:12px;background:#000"></video>
+          <p class="help">This lets you preview local files. To share a file, upload it to a service you control and then use the <b>Direct-File Downloader</b> section if appropriate.</p>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1">
+        <div class="hd">
+          <h2>Notes on Legality & Alternatives</h2>
+        </div>
+        <div class="bd">
+          <ul>
+            <li>Respect each site’s Terms of Service and copyright law. Don’t download content you aren’t authorized to download.</li>
+            <li>For your own YouTube uploads, use <b>YouTube Studio</b> (download your originals) or <b>Google Takeout</b> to export your library.</li>
+            <li>To watch offline legally, look for an official download button or a subscription tier that includes offline viewing in the platform’s app.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // --- Utilities ---
+    const qs = sel => document.querySelector(sel);
+
+    function extractYouTubeId(url){
+      try{
+        const u = new URL(url);
+        if(u.hostname.includes('youtu.be')){
+          return u.pathname.replace('/', '').trim();
+        }
+        if(u.hostname.includes('youtube.com')){
+          const v = u.searchParams.get('v');
+          if(v) return v;
+          // handle /shorts/ID or /live/ID
+          const parts = u.pathname.split('/').filter(Boolean);
+          const idx = parts.findIndex(p => p === 'shorts' || p === 'live' || p === 'embed');
+          if(idx !== -1 && parts[idx+1]) return parts[idx+1];
+        }
+      }catch(e){/* ignore */}
+      // fallback: try simple regex
+      const m = String(url).match(/[?&]v=([\w-]{11})|youtu\.be\/([\w-]{11})|shorts\/([\w-]{11})/);
+      if(m){ return (m[1]||m[2]||m[3]); }
+      return null;
+    }
+
+    function setEmbed(id){
+      const iframe = qs('#ytPlayer');
+      if(!id){
+        iframe.src = '';
+        return;
       }
+      iframe.src = `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
+    }
 
-      function Character() {
-        // Load sample soldier/ghillie model (replace with your .glb path)
-        const { scene } = useGLTF("https://threejs.org/examples/models/gltf/Soldier.glb");
-        return <primitive object={scene} scale={1.2} position={[0,-1,0]} />;
+    // --- YouTube Loader & Save ---
+    qs('#loadBtn').addEventListener('click', () => {
+      const url = qs('#ytUrl').value.trim();
+      const id = extractYouTubeId(url);
+      if(!id){
+        alert('Could not find a valid YouTube video ID in that URL.');
+        return;
       }
+      setEmbed(id);
+    });
 
-      function Scene3D() {
-        const aimTarget = useRef(new THREE.Vector3(0,0.2,2));
-        const [flash, setFlash] = useState(false);
-        const { camera, mouse, viewport } = useThree();
+    // --- Bookmarks ---
+    const STORAGE_KEY = 'lvh.bookmarks.v1';
 
-        useFrame(() => {
-          const x = mouse.x * viewport.width * 0.25;
-          const y = mouse.y * viewport.height * 0.25 + 0.2;
-          aimTarget.current.set(x, y, 2);
+    function getBookmarks(){
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch(e){ return []; }
+    }
+    function saveBookmarks(list){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+    function renderBookmarks(){
+      const container = qs('#bookmarks');
+      const items = getBookmarks();
+      if(items.length === 0){
+        container.innerHTML = `<div class="item small">No bookmarks yet. Paste a YouTube link above and click <b>Save</b>.</div>`;
+        return;
+      }
+      container.innerHTML = items.map((it, i) => `
+        <div class="item">
+          <div class="row" style="margin-bottom:8px">
+            <strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${escapeHtml(it.title||it.id)}</strong>
+            <div class="row">
+              <button data-play="${i}" class="btn-ghost" title="Play">Play</button>
+              <button data-del="${i}" class="btn-err" title="Delete">Delete</button>
+            </div>
+          </div>
+          <div class="small">https://youtu.be/${it.id}</div>
+        </div>
+      `).join('');
+
+      // wire actions
+      container.querySelectorAll('[data-play]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          const idx = +e.currentTarget.dataset.play;
+          const item = getBookmarks()[idx];
+          if(item){ setEmbed(item.id); qs('#ytUrl').value = `https://youtu.be/${item.id}`; }
         });
+      });
+      container.querySelectorAll('[data-del]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          const idx = +e.currentTarget.dataset.del;
+          const arr = getBookmarks(); arr.splice(idx,1); saveBookmarks(arr); renderBookmarks();
+        });
+      });
+    }
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    }
 
-        useEffect(() => {
-          function onClick() {
-            setFlash(true);
-            setTimeout(() => setFlash(false), 120);
-          }
-          window.addEventListener("click", onClick);
-          return () => window.removeEventListener("click", onClick);
-        }, []);
-
-        return (
-          <>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[2,3,2]} intensity={1} />
-            <Sparkles count={100} scale={[6,2,4]} size={2} speed={0.2} />
-            <mesh position={[0, -1, 0]} rotation={[-Math.PI/2,0,0]}>
-              <planeGeometry args={[20,20]} />
-              <meshStandardMaterial color="#222" />
-            </mesh>
-            <Character />
-            {flash && (
-              <mesh position={[0,0.3,1]}>
-                <sphereGeometry args={[0.1,16,16]} />
-                <meshBasicMaterial color="yellow" />
-              </mesh>
-            )}
-            <Html center>
-              <div style={{color:"white", fontSize:"14px"}}>Click to shoot • Aim with mouse</div>
-            </Html>
-          </>
-        );
+    qs('#saveBtn').addEventListener('click', async () => {
+      const url = qs('#ytUrl').value.trim();
+      const id = extractYouTubeId(url);
+      if(!id){
+        alert('Please paste a valid YouTube URL first.');
+        return;
       }
-
-      function App(){
-        const [showMenu, setShowMenu] = useState(false);
-        useEffect(() => {
-          setTimeout(()=>setShowMenu(true), 2000);
-        }, []);
-        return (
-          <div style={{width:"100%", height:"100%"}}>
-            <Canvas shadows camera={{position:[0,0.6,6], fov:40}}>
-              <color attach="background" args={["#0b1020"]} />
-              <Scene3D />
-            </Canvas>
-            <Crosshair visible={true} />
-            {showMenu && (
-              <div style={{position:"absolute", bottom:"50px", left:"50%", transform:"translateX(-50%)", zIndex:50}}>
-                <button style={{padding:"15px 30px", borderRadius:"20px", fontSize:"20px", color:"white", background:"linear-gradient(90deg, cyan, violet)", border:"none", cursor:"pointer", animation:"pulse 1s infinite alternate"}}>WELCOME</button>
-              </div>
-            )}
-          </div>
-        );
+      // Try to guess a title from the URL; no API calls to avoid keys.
+      const title = `YouTube ${id}`;
+      const arr = getBookmarks();
+      if(arr.some(x=>x.id===id)){
+        alert('Already bookmarked.');
+        return;
       }
+      arr.unshift({id, title});
+      saveBookmarks(arr);
+      renderBookmarks();
+    });
 
-      ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-    </script>
-  </body>
+    qs('#clearAll').addEventListener('click', () => {
+      if(confirm('Clear all bookmarks?')){
+        saveBookmarks([]); renderBookmarks();
+      }
+    });
+
+    // --- Direct-file downloader ---
+    qs('#dlBtn').addEventListener('click', async () => {
+      const url = qs('#fileUrl').value.trim();
+      const name = (qs('#fileName').value.trim()) || guessName(url);
+      if(!url){ alert('Enter a direct file URL (e.g., https://example.com/video.mp4)'); return; }
+      if(/youtube\.com|youtu\.be/i.test(url)){
+        alert('This tool does not download from YouTube.');
+        return;
+      }
+      try{
+        const res = await fetch(url, {mode:'cors'});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name || 'video';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+      }catch(err){
+        alert('Could not download. The server may block cross-origin downloads or require authentication.\n\nDetails: '+ err.message);
+      }
+    });
+
+    function guessName(u){
+      try{ const p = new URL(u).pathname.split('/').pop(); return p || 'video'; }
+      catch(e){ return 'video'; }
+    }
+
+    // --- Local upload preview ---
+    qs('#saveLocal').addEventListener('click', () => {
+      const f = qs('#uploader').files?.[0];
+      if(!f){ alert('Choose a video file first.'); return; }
+      const url = URL.createObjectURL(f);
+      const vid = qs('#localVideo');
+      vid.src = url; vid.play();
+    });
+
+    // Initial render
+    renderBookmarks();
+  </script>
+</body>
 </html>
