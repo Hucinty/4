@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Cinematic Intro</title>
+    <style>
+      body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: black; }
+      #root { width: 100%; height: 100%; }
+      canvas { outline: none; }
+      @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- React + ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Three.js + React Three Fiber + Drei -->
+    <script src="https://unpkg.com/three@0.156.1/build/three.min.js"></script>
+    <script src="https://unpkg.com/@react-three/fiber/dist/react-three-fiber.umd.js"></script>
+    <script src="https://unpkg.com/@react-three/drei/dist/drei.umd.js"></script>
+    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+
+    <script type="text/babel">
+      const { Canvas, useFrame, useThree } = ReactThreeFiber;
+      const { Html, Sparkles, useGLTF } = drei;
+      const { useRef, useState, useEffect } = React;
+
+      function Crosshair({ visible }) {
+        const [pos, setPos] = useState({ x: -1000, y: -1000 });
+        useEffect(() => {
+          function onMove(e) { setPos({ x: e.clientX, y: e.clientY }); }
+          window.addEventListener("mousemove", onMove);
+          return () => window.removeEventListener("mousemove", onMove);
+        }, []);
+        return (
+          <div style={{ position: "fixed", left: pos.x-8, top: pos.y-8, opacity: visible ? 1 : 0, zIndex: 40 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" stroke="white">
+              <circle cx="8" cy="8" r="1" />
+              <line x1="8" y1="0" x2="8" y2="3" />
+              <line x1="8" y1="13" x2="8" y2="16" />
+              <line x1="0" y1="8" x2="3" y2="8" />
+              <line x1="13" y1="8" x2="16" y2="8" />
+            </svg>
+          </div>
+        );
+      }
+
+      function Character() {
+        // Load sample soldier/ghillie model (replace with your .glb path)
+        const { scene } = useGLTF("https://threejs.org/examples/models/gltf/Soldier.glb");
+        return <primitive object={scene} scale={1.2} position={[0,-1,0]} />;
+      }
+
+      function Scene3D() {
+        const aimTarget = useRef(new THREE.Vector3(0,0.2,2));
+        const [flash, setFlash] = useState(false);
+        const { camera, mouse, viewport } = useThree();
+
+        useFrame(() => {
+          const x = mouse.x * viewport.width * 0.25;
+          const y = mouse.y * viewport.height * 0.25 + 0.2;
+          aimTarget.current.set(x, y, 2);
+        });
+
+        useEffect(() => {
+          function onClick() {
+            setFlash(true);
+            setTimeout(() => setFlash(false), 120);
+          }
+          window.addEventListener("click", onClick);
+          return () => window.removeEventListener("click", onClick);
+        }, []);
+
+        return (
+          <>
+            <ambientLight intensity={0.5} />
+            <directionalLight position={[2,3,2]} intensity={1} />
+            <Sparkles count={100} scale={[6,2,4]} size={2} speed={0.2} />
+            <mesh position={[0, -1, 0]} rotation={[-Math.PI/2,0,0]}>
+              <planeGeometry args={[20,20]} />
+              <meshStandardMaterial color="#222" />
+            </mesh>
+            <Character />
+            {flash && (
+              <mesh position={[0,0.3,1]}>
+                <sphereGeometry args={[0.1,16,16]} />
+                <meshBasicMaterial color="yellow" />
+              </mesh>
+            )}
+            <Html center>
+              <div style={{color:"white", fontSize:"14px"}}>Click to shoot • Aim with mouse</div>
+            </Html>
+          </>
+        );
+      }
+
+      function App(){
+        const [showMenu, setShowMenu] = useState(false);
+        useEffect(() => {
+          setTimeout(()=>setShowMenu(true), 2000);
+        }, []);
+        return (
+          <div style={{width:"100%", height:"100%"}}>
+            <Canvas shadows camera={{position:[0,0.6,6], fov:40}}>
+              <color attach="background" args={["#0b1020"]} />
+              <Scene3D />
+            </Canvas>
+            <Crosshair visible={true} />
+            {showMenu && (
+              <div style={{position:"absolute", bottom:"50px", left:"50%", transform:"translateX(-50%)", zIndex:50}}>
+                <button style={{padding:"15px 30px", borderRadius:"20px", fontSize:"20px", color:"white", background:"linear-gradient(90deg, cyan, violet)", border:"none", cursor:"pointer", animation:"pulse 1s infinite alternate"}}>WELCOME</button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+    </script>
+  </body>
+</html>
